@@ -152,7 +152,7 @@ def chart_title() -> str:
 
 with ui.sidebar(open="open"):
     ui.img(
-        src="lab.png",  # because it's in www/
+        src="lab.svg",  # because it's in www/
         style="max-width: 200px; margin-bottom: 8px;",
     )
     ui.input_radio_buttons(
