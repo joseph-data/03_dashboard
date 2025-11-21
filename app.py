@@ -231,7 +231,7 @@ with ui.sidebar(open="open"):
 # ui.input_dark_mode(id="mode")
 ui.page_opts(
     title="DAIOE Explorer",
-    fillable=True,
+    fillable=False,
     full_width=True,
     theme=theme.lumen,
     id="page",
