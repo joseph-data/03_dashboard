@@ -413,9 +413,9 @@ with ui.layout_columns(col_widths=[6, 6], gap="12px"):
         most = info["most"]
         year = info["year"]
         return classic_ui.value_box(
-            "Most exposed occupation",
+            "Most exposed occupation\n",
             ui.h4(most["label"]),
-            f"{metric_label()} raw: {format_raw_value(most['value'])} | "
+            f"{metric_label()} raw: {format_raw_value(most['value'])} | \n"
             f"percentile: {format_metric_value(most['percentile'])} (year {year})",
         )
 
@@ -432,9 +432,9 @@ with ui.layout_columns(col_widths=[6, 6], gap="12px"):
         least = info["least"]
         year = info["year"]
         return classic_ui.value_box(
-            "Least exposed occupation",
+            "Least exposed occupation\n",
             ui.h4(least["label"]),
-            f"{metric_label()} raw: {format_raw_value(least['value'])} | "
+            f"{metric_label()} raw: {format_raw_value(least['value'])} | \n"
             f"percentile: {format_metric_value(least['percentile'])} (year {year})",
         )
 
