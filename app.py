@@ -149,7 +149,12 @@ def chart_title() -> str:
 # ---------------------------------------------------------------------------
 # Sidebar UI
 # ---------------------------------------------------------------------------
+
 with ui.sidebar(open="open"):
+    ui.img(
+        src="lab.png",  # because it's in www/
+        style="max-width: 200px; margin-bottom: 8px;",
+    )
     ui.input_radio_buttons(
         "taxonomy",
         "Taxonomy",
@@ -196,8 +201,10 @@ with ui.sidebar(open="open"):
 
     ui.input_switch("sort_desc", "Sort descending", value=DEFAULT_SORT_DESC)
     ui.input_text("search", "Search occupation", placeholder="e.g. statistician")
-    with ui.popover(id="help_popover", title="How to Use"):
-        ui.input_action_button("show_help", "ℹ️ Guide", class_="btn btn-link p-0")
+    with ui.popover(id="help_popover", title="How to Use the Dashboard"):
+        ui.input_action_button(
+            "show_help", "ℹ️ Quick Guide", class_="btn btn-link p-0 text-decoration-none"
+        )
         ui.markdown(
             """
 <div style="
@@ -221,12 +228,14 @@ with ui.sidebar(open="open"):
             """
         )
 
-
+# ui.input_dark_mode(id="mode")
 ui.page_opts(
-    title="DAIOE Occupation Explorer",
+    title="DAIOE Explorer",
     fillable=True,
     full_width=True,
-    theme=theme.flatly,
+    theme=theme.lumen,
+    id="page",
+    lang="en",
 )
 
 # ---------------------------------------------------------------------------
@@ -390,12 +399,15 @@ def latest_extremes() -> Dict[str, Dict[str, float | str]]:
 # Top summary boxes
 # ---------------------------------------------------------------------------
 with ui.layout_columns(col_widths=[6, 6], gap="12px"):
+
     @render.ui
     def most_exposed_box():
         info = latest_extremes()
         if not info:
             return ui.value_box(
-                "Most exposed occupation", "No data in range", "Adjust filters to see values"
+                "Most exposed occupation",
+                "No data in range",
+                "Adjust filters to see values",
             )
 
         most = info["most"]
@@ -412,7 +424,9 @@ with ui.layout_columns(col_widths=[6, 6], gap="12px"):
         info = latest_extremes()
         if not info:
             return ui.value_box(
-                "Least exposed occupation", "No data in range", "Adjust filters to see values"
+                "Least exposed occupation",
+                "No data in range",
+                "Adjust filters to see values",
             )
 
         least = info["least"]
