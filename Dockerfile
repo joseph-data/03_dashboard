@@ -15,7 +15,11 @@ RUN apt-get update && \
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
-COPY . .
+# Create a non-root user
+RUN useradd -m -u 1000 shiny
+USER shiny
+
+COPY --chown=shiny:shiny . .
 
 EXPOSE 7860
 
