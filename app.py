@@ -230,13 +230,31 @@ with ui.sidebar(open="open"):
 
 # ui.input_dark_mode(id="mode")
 ui.page_opts(
-    title="DAIOE Explorer",
-    fillable=False,
+    title=ui.div(
+        "DAIOE Explorer",
+        ui.input_dark_mode(mode="light"),
+        class_="d-flex justify-content-between w-100",
+    ),
+    fillable=True,
+    fillable_mobile=True,
     full_width=True,
     theme=theme.lumen,
     id="page",
     lang="en",
 )
+
+
+# ui.page_opts(
+#     theme=theme.lumen,
+#     fillable=True,
+#     fillable_mobile=True,
+#     class_="bg-light",
+#     title=ui.div(
+#         "DAIOE Explorer",
+#         ui.input_dark_mode(mode="light"),
+#         class_="d-flex justify-content-between w-100",
+#     ),
+# )
 
 # ---------------------------------------------------------------------------
 # Reactive helpers
@@ -398,7 +416,7 @@ def latest_extremes() -> Dict[str, Dict[str, float | str]]:
 # ---------------------------------------------------------------------------
 # Top summary boxes
 # ---------------------------------------------------------------------------
-with ui.layout_columns(col_widths=[6, 6], gap="12px"):
+with ui.layout_columns(col_widths=[6, 6], gap="9px"):
 
     @render.ui
     def most_exposed_box():
@@ -417,6 +435,8 @@ with ui.layout_columns(col_widths=[6, 6], gap="12px"):
             ui.h4(most["label"]),
             f"{metric_label()} raw: {format_raw_value(most['value'])} | \n"
             f"percentile: {format_metric_value(most['percentile'])} (year {year})",
+            theme="blue",
+            fill=True,
         )
 
     @render.ui
@@ -436,13 +456,16 @@ with ui.layout_columns(col_widths=[6, 6], gap="12px"):
             ui.h4(least["label"]),
             f"{metric_label()} raw: {format_raw_value(least['value'])} | \n"
             f"percentile: {format_metric_value(least['percentile'])} (year {year})",
+            theme="bg-gradient-orange-red",
+            full_screen=True,
+            fill=True,
         )
 
 
 # ---------------------------------------------------------------------------
 # Main UI cards & plots
 # ---------------------------------------------------------------------------
-with ui.card(full_screen=True):
+with ui.card(full_screen=True, fill=True):
     ui.card_header("Trend by occupation")
 
     @render_widget
@@ -469,7 +492,7 @@ with ui.card(full_screen=True):
         return fig
 
 
-with ui.card(full_screen=True):
+with ui.card(full_screen=True, fill=True):
     ui.card_header("Latest year comparison")
 
     @render_widget
