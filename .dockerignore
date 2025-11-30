@@ -1,11 +1,20 @@
+# Python cache and bytecode
 __pycache__
 *.pyc
 *.pyo
 *.pyd
 .Python
+
+# Virtual environments
 env
+venv
+.venv
+
+# Installer / build logs
 pip-log.txt
 pip-delete-this-directory.txt
+
+# Test / coverage artifacts
 .tox
 .coverage
 .coverage.*
@@ -14,10 +23,12 @@ nosetests.xml
 coverage.xml
 *.cover
 *.log
-.git
 .mypy_cache
 .pytest_cache
 .hypothesys
-venv
-.venv
+
+# Git data
+.git
+
+# Project-specific cruft
 _brand.yml

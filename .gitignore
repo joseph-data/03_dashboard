@@ -1,26 +1,32 @@
-# Python-generated files
+# Byte-compiled / cache
 __pycache__/
-*.py[oc]
-build/
+*.py[cod]
+*.pyo
+
+# Environments
+.venv/
+venv/
+env/
+
+# Test / coverage artifacts
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+
+# Logs
+*.log
+
+# OS / editor cruft
+.DS_Store
+.idea/
+.vscode/
+
+# Build artifacts
 dist/
-wheels/
-*.egg-info
+build/
 
-# Virtual environments
-.venv
-
-# Project-specific artifacts
-test_notebooks/
-.python-version
-pyproject.toml
-uv.lock
-scripts/03_translate_ssyk2012.py
-scripts/03_translate_ssyk96.py
-scripts/03_translate_ssyk2012.py
-scripts/03_translate_ssyk96.py
-data/01_daioe_raw/
-data/02_scb_data/
-data/04_translation_files/
-scripts/03_translate_ssyk2012.py
-scripts/03_translate_ssyk96.py
-_brand.yml
+# Notebook checkpoints
+.ipynb_checkpoints/

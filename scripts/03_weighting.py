@@ -1,53 +1,45 @@
 from __future__ import annotations
 
+"""
+DAIOE weighting pipeline: load raw GitHub DAIOE data, translate labels, attach
+SCB employment weights, aggregate across levels, and compute percentiles.
+"""
+
 import argparse
+import importlib.util
+import os
 from pathlib import Path
-from typing import Literal
+from typing import Dict, Iterable, Literal, Tuple
 
 import pandas as pd
 
+ROOT = Path(__file__).resolve().parent
+
+
+def _load_module(name: str):
+    target = ROOT / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(name, target)
+    module = importlib.util.module_from_spec(spec)
+    if spec.loader is None:  # pragma: no cover - defensive
+        raise ImportError(f"Could not load module '{name}' from {target}")
+    spec.loader.exec_module(module)
+    return module
+
+
+_scb = _load_module("01_scbpull")
+_translate = _load_module("02_translate")
+
 Taxonomy = Literal["ssyk2012", "ssyk96"]
 
-# ----------------------------------------------------------------------------
-# Project paths
-# ----------------------------------------------------------------------------
-try:
-    ROOT = Path(__file__).resolve().parents[1]
-except NameError:  # pragma: no cover - interactive fallback
-    ROOT = Path.cwd()
-
-DATA_DIR = ROOT / "data"
-
-
-def data_path(*parts: str | Path) -> Path:
-    """Build an absolute path inside data/."""
-    return DATA_DIR.joinpath(*parts)
-
-
-def latest_file(directory: Path, pattern: str) -> Path:
-    """Pick the most recent file (lexicographically) matching pattern."""
-    files = sorted(directory.glob(pattern))
-    if not files:
-        raise FileNotFoundError(f"No files matching '{pattern}' in {directory}")
-    return files[-1]
+# Public dataset sources (GitHub raw URLs) keyed by taxonomy.
+DATASET_URLS: Dict[Taxonomy, str] = {
+    "ssyk2012": "https://raw.githubusercontent.com/joseph-data/daioe_dataset/main/daioe_ssyk2012/daioe_ssyk2012.csv",
+    "ssyk96": "https://raw.githubusercontent.com/joseph-data/daioe_dataset/main/daioe_ssyk96/daioe_ssyk96.csv",
+}
 
 
 # ----------------------------------------------------------------------------
-# Data loaders
-# ----------------------------------------------------------------------------
-def load_daioe_raw(taxonomy: Taxonomy, sep: str = "\t") -> pd.DataFrame:
-    """Read the DAIOE raw export for the chosen taxonomy."""
-    return pd.read_csv(data_path("01_daioe_raw", f"daioe_{taxonomy}.csv"), sep=sep)
-
-
-def load_scb_employment(taxonomy: Taxonomy) -> pd.DataFrame:
-    """Load the latest SCB employment snapshot (produced by 01_scbPull.py)."""
-    scb_path = latest_file(data_path("02_scb_data"), f"{taxonomy}*.csv")
-    return pd.read_csv(scb_path).drop(columns=["year"], errors="ignore")
-
-
-# ----------------------------------------------------------------------------
-# Preparation helpers
+# Helpers
 # ----------------------------------------------------------------------------
 def ensure_columns(df: pd.DataFrame, required: list[str]) -> None:
     missing = [col for col in required if col not in df.columns]
@@ -59,6 +51,15 @@ def split_code_label(series: pd.Series) -> tuple[pd.Series, pd.Series]:
     parts = series.astype(str).str.split(" ", n=1, expand=True)
     parts = parts.fillna({0: "", 1: ""})
     return parts[0], parts[1]
+
+
+# ----------------------------------------------------------------------------
+# Data loaders
+# ----------------------------------------------------------------------------
+def load_daioe_raw(taxonomy: Taxonomy, sep: str = "\t") -> pd.DataFrame:
+    if taxonomy not in DATASET_URLS:
+        raise KeyError(f"No dataset URL configured for taxonomy '{taxonomy}'")
+    return pd.read_csv(DATASET_URLS[taxonomy], sep=sep)
 
 
 def prepare_raw_dataframe(
@@ -149,7 +150,9 @@ def aggregate_level(
         tmp = df[group_cols + ["emp"] + daioe_cols].copy()
         for metric in daioe_cols:
             mask = tmp[metric].notna()
-            tmp[f"{metric}_wx"] = tmp[metric].where(mask, 0) * tmp["emp"].where(mask, 0)
+            tmp[f"{metric}_wx"] = tmp[metric].where(mask, 0) * tmp["emp"].where(
+                mask, 0
+            )
             tmp[f"{metric}_w"] = tmp["emp"].where(mask, 0)
         agg_cols = {f"{metric}_wx": "sum" for metric in daioe_cols}
         agg_cols.update({f"{metric}_w": "sum" for metric in daioe_cols})
@@ -251,29 +254,22 @@ def build_pipeline(
 
 
 # ----------------------------------------------------------------------------
-# I/O
-# ----------------------------------------------------------------------------
-def write_outputs(
-    taxonomy: Taxonomy, weighted: pd.DataFrame, simple: pd.DataFrame
-) -> None:
-    out_dir = data_path("03_daioe_aggregated")
-    out_dir.mkdir(parents=True, exist_ok=True)
-    weighted_path = out_dir / f"daioe_{taxonomy}_emp_weighted.csv"
-    simple_path = out_dir / f"daioe_{taxonomy}_simple_avg.csv"
-    weighted.to_csv(weighted_path, index=False)
-    simple.to_csv(simple_path, index=False)
-    print("Written employment-weighted file:", weighted_path)
-    print("Written simple-average file:    ", simple_path)
-
-
-# ----------------------------------------------------------------------------
 # Pipeline driver
 # ----------------------------------------------------------------------------
-def run(taxonomy: Taxonomy, sep: str = "\t") -> None:
+def run_weighting(
+    taxonomy: Taxonomy,
+    *,
+    sep: str = "\t",
+    translation_source: str | Path | None = None,
+) -> Dict[str, object]:
+    """End-to-end flow: fetch raw, translate, attach SCB, aggregate."""
     raw = load_daioe_raw(taxonomy, sep=sep)
-    scb = load_scb_employment(taxonomy)
-    prepared, daioe_cols = prepare_raw_dataframe(raw, taxonomy)
-    prepared = attach_employment(prepared, scb)
+    translated, unmatched = _translate.translate_taxonomy(
+        raw, taxonomy, translation_source=translation_source
+    )
+    scb_df, scb_year = _scb.fetch_taxonomy_dataframe(taxonomy)
+    prepared, daioe_cols = prepare_raw_dataframe(translated, taxonomy)
+    prepared = attach_employment(prepared, scb_df)
     n_children = compute_children_maps(prepared)
 
     weighted = build_pipeline(
@@ -291,7 +287,29 @@ def run(taxonomy: Taxonomy, sep: str = "\t") -> None:
         method="simple",
     )
 
-    write_outputs(taxonomy, weighted, simple)
+    return {
+        "taxonomy": taxonomy,
+        "scb_year": scb_year,
+        "weighted": weighted,
+        "simple": simple,
+        "scb": scb_df,
+        "unmatched": unmatched,
+    }
+
+
+def run_pipeline(
+    taxonomies: Iterable[Taxonomy] | None = None,
+    *,
+    sep: str = "\t",
+    translation_source: str | Path | None = None,
+) -> Dict[Taxonomy, Dict[str, object]]:
+    taxonomies = list(taxonomies or ["ssyk2012", "ssyk96"])
+    results: Dict[Taxonomy, Dict[str, object]] = {}
+    for taxonomy in taxonomies:
+        results[taxonomy] = run_weighting(
+            taxonomy, sep=sep, translation_source=translation_source
+        )
+    return results
 
 
 def parse_args() -> argparse.Namespace:
@@ -300,18 +318,37 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--taxonomy",
-        default="ssyk2012",
+        action="append",
         choices=["ssyk2012", "ssyk96"],
-        help="Which taxonomy file to process (default: ssyk2012)",
+        help="Which taxonomy to process (default: both ssyk2012 and ssyk96)",
     )
     parser.add_argument(
         "--sep",
         default="\t",
         help="Delimiter used in DAIOE raw files (default: tab)",
     )
+    parser.add_argument(
+        "--translation-source",
+        default=os.getenv("SSYK96_TRANSLATION_SOURCE"),
+        help="Path or URL to SSYK96 translation Excel (optional).",
+    )
     return parser.parse_args()
 
 
-if __name__ == "__main__":
+def main() -> None:
     args = parse_args()
-    run(args.taxonomy, sep=args.sep)
+    taxonomies = args.taxonomy or ["ssyk2012", "ssyk96"]
+    results = run_pipeline(
+        taxonomies, sep=args.sep, translation_source=args.translation_source
+    )
+    for taxonomy, payload in results.items():
+        weighted = payload["weighted"]
+        simple = payload["simple"]
+        print(f"{taxonomy}: weighted rows={len(weighted)}, simple rows={len(simple)}")
+        print(f"  SCB year: {payload['scb_year']}")
+        if payload["unmatched"]:
+            print(f"  Unmatched translation entries: {payload['unmatched']}")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
+import os
 from typing import Dict, List, Tuple
 
 import pandas as pd
@@ -11,10 +11,7 @@ from shiny.express import input, ui
 from shinywidgets import render_widget
 from shinyswatch import theme
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-DATA_DIR = Path(__file__).resolve().parent / "data" / "03_daioe_aggregated"
+from scripts import run_pipeline  # type: ignore
 
 TAXONOMY_OPTIONS = [
     ("🇸🇪 SSYK 2012", "ssyk2012"),
@@ -51,36 +48,42 @@ LEVEL_CHOICES = {str(value): label for label, value in LEVEL_OPTIONS}
 
 
 def load_data() -> Dict[str, pd.DataFrame]:
-    """Read both weighting versions for each taxonomy into tidy frames."""
+    """Fetch raw + SCB data on the fly and build weighting outputs in-memory."""
+    translation_source = os.getenv("SSYK96_TRANSLATION_SOURCE")
+    pipeline_results = run_pipeline(translation_source=translation_source)
     frames: Dict[str, pd.DataFrame] = {}
-    for _, taxonomy in TAXONOMY_OPTIONS:
-        dfs = []
-        for label, suffix in WEIGHTING_OPTIONS:
-            path = DATA_DIR / f"daioe_{taxonomy}_{suffix}.csv"
-            if not path.exists():
-                continue
-            df = pd.read_csv(path)
 
-            # Add weighting metadata (no visual change, used only for filtering)
-            df["weighting"] = suffix
-            df["weighting_label"] = label
-            dfs.append(df)
+    for _, taxonomy in TAXONOMY_OPTIONS:
+        payload = pipeline_results.get(taxonomy)
+        if not payload:
+            continue
+
+        dfs = []
+        weighted = payload.get("weighted")
+        simple = payload.get("simple")
+
+        if isinstance(weighted, pd.DataFrame) and not weighted.empty:
+            tmp = weighted.copy()
+            tmp["weighting"] = "emp_weighted"
+            tmp["weighting_label"] = WEIGHTING_OPTIONS[0][0]
+            dfs.append(tmp)
+
+        if isinstance(simple, pd.DataFrame) and not simple.empty:
+            tmp = simple.copy()
+            tmp["weighting"] = "simple_avg"
+            tmp["weighting_label"] = WEIGHTING_OPTIONS[1][0]
+            dfs.append(tmp)
 
         if dfs:
             full = pd.concat(dfs, ignore_index=True)
-
-            # Light type normalization (helps performance, no visual impact)
             if "year" in full.columns:
                 full["year"] = full["year"].astype(int)
             if "level" in full.columns:
                 full["level"] = full["level"].astype(int)
-
             frames[taxonomy] = full
 
     if not frames:
-        raise FileNotFoundError(
-            "No aggregated DAIOE datasets found. Run main.py to regenerate them."
-        )
+        raise RuntimeError("No aggregated DAIOE datasets could be built in-memory.")
     return frames
 
 
@@ -228,33 +231,16 @@ with ui.sidebar(open="open"):
             """
         )
 
-# ui.input_dark_mode(id="mode")
 ui.page_opts(
-    title=ui.div(
-        "DAIOE Explorer",
-        ui.input_dark_mode(mode="light"),
-        class_="d-flex justify-content-between w-100",
-    ),
+    title="DAIOE Explorer",
     fillable=True,
     fillable_mobile=True,
     full_width=True,
-    theme=theme.lumen,
+    theme=theme.flatly,
     id="page",
     lang="en",
 )
 
-
-# ui.page_opts(
-#     theme=theme.lumen,
-#     fillable=True,
-#     fillable_mobile=True,
-#     class_="bg-light",
-#     title=ui.div(
-#         "DAIOE Explorer",
-#         ui.input_dark_mode(mode="light"),
-#         class_="d-flex justify-content-between w-100",
-#     ),
-# )
 
 # ---------------------------------------------------------------------------
 # Reactive helpers

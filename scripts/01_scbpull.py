@@ -1,45 +1,46 @@
 from __future__ import annotations
 
+"""
+SCB pull helper: fetches the latest employment counts for a given SSYK taxonomy
+from the SCB API and returns a tidy dataframe along with the year used.
+"""
+
 import argparse
-from pathlib import Path
-from typing import Literal
+from typing import Literal, Tuple
 
 import pandas as pd
 from pyscbwrapper import SCB
 
 Taxonomy = Literal["ssyk2012", "ssyk96"]
 
-
-try:
-    ROOT = Path(__file__).resolve().parents[1]
-except NameError:  # pragma: no cover - interactive fallback
-    ROOT = Path.cwd().resolve()
-
-DATA_DIR = ROOT / "data"
-SCB_DIR = DATA_DIR / "02_scb_data"
-
+# SCB table metadata keyed by taxonomy.
 TABLES = {
     "ssyk2012": ("en", "AM", "AM0208", "AM0208E", "YREG51BAS"),
     "ssyk96": ("en", "AM", "AM0208", "AM0208E", "YREG33"),
 }
 
 
-def coerce_year(value: str | int | None) -> int | None:
+def _coerce_year(value: str | int | None) -> int | None:
     try:
         return int(value) if value is not None else None
     except (TypeError, ValueError):
         return None
 
 
-def latest_year(var_block: dict) -> str:
-    years = [coerce_year(year) for year in var_block.get("year", [])]
+def _latest_year(var_block: dict) -> str:
+    years = [_coerce_year(year) for year in var_block.get("year", [])]
     valid = [year for year in years if year is not None]
     if not valid:
         raise ValueError("SCB variable metadata did not provide any valid years")
     return str(max(valid))
 
 
-def fetch_taxonomy_dataframe(taxonomy: Taxonomy) -> tuple[pd.DataFrame, str]:
+def fetch_taxonomy_dataframe(taxonomy: Taxonomy) -> Tuple[pd.DataFrame, str]:
+    """
+    Pull SCB employment counts for a taxonomy and return a tidy DataFrame.
+
+    Returns a tuple of (dataframe, year_used). No disk writes occur.
+    """
     if taxonomy not in TABLES:
         raise KeyError(f"Unknown taxonomy '{taxonomy}'")
 
@@ -48,7 +49,8 @@ def fetch_taxonomy_dataframe(taxonomy: Taxonomy) -> tuple[pd.DataFrame, str]:
     occupations_key, occupations = next(iter(var_block.items()))
     clean_key = occupations_key.replace(" ", "")
 
-    year = latest_year(var_block)
+    year = _latest_year(var_block)
+    # Request all occupations for the freshest year exposed by the API.
     scb.set_query(**{clean_key: occupations, "year": [year]})
     scb_fetch = scb.get_data()["data"]
 
@@ -96,18 +98,6 @@ def fetch_taxonomy_dataframe(taxonomy: Taxonomy) -> tuple[pd.DataFrame, str]:
     return stacked, year
 
 
-def write_taxonomy_csv(df: pd.DataFrame, taxonomy: Taxonomy, year: str) -> Path:
-    SCB_DIR.mkdir(parents=True, exist_ok=True)
-    out_path = SCB_DIR / f"{taxonomy}_en_{year}.csv"
-    df.to_csv(out_path, index=False)
-    return out_path
-
-
-def pull_taxonomy(taxonomy: Taxonomy) -> Path:
-    df, year = fetch_taxonomy_dataframe(taxonomy)
-    return write_taxonomy_csv(df, taxonomy, year)
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Pull SCB weights for a taxonomy")
     parser.add_argument(
@@ -121,8 +111,9 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    path = pull_taxonomy(args.taxonomy)
-    print(f"Wrote {path}")
+    df, year = fetch_taxonomy_dataframe(args.taxonomy)
+    print(f"Fetched {len(df)} rows for {args.taxonomy} (year {year})")
+    print(df.head())
 
 
 if __name__ == "__main__":

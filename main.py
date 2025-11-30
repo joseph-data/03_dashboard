@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+"""
+CLI entrypoint: runs the DAIOE pipeline end-to-end and logs row counts plus SCB
+year, useful for sanity-checking outside the Shiny app.
+"""
+
 import argparse
-import importlib.util
 from pathlib import Path
 from typing import Iterable
 
@@ -9,36 +13,15 @@ from typing import Iterable
 PROJECT_ROOT = Path(__file__).resolve().parent
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 
-
-def load_module(name: str, filename: str):
-    """Import a script with a numeric prefix via importlib."""
-    spec = importlib.util.spec_from_file_location(name, SCRIPTS_DIR / filename)
-    module = importlib.util.module_from_spec(spec)
-    if spec.loader is None:  # pragma: no cover - defensive
-        raise ImportError(f"Could not load module '{name}' from {filename}")
-    spec.loader.exec_module(module)
-    return module
+# Scripts are exposed via scripts/__init__.py to avoid numeric imports.
+from scripts import Taxonomy, run_pipeline  # noqa: E402
 
 
-SCB_PULL = load_module("scb_pull_ai", "01_scbPull_AI.py")
-WEIGHTING = load_module("weighting_ai", "02_weighting_AI.py")
-
-
-def run_pipeline(taxonomies: Iterable[WEIGHTING.Taxonomy]):
-    """Run SCB pull + weighting for each taxonomy and collect output paths."""
-    summary = []
-    for taxonomy in taxonomies:
-        scb_path = SCB_PULL.pull_taxonomy(taxonomy)
-        weighted_path, simple_path = WEIGHTING.run_weighting(taxonomy)
-        summary.append(
-            {
-                "taxonomy": taxonomy,
-                "scb": scb_path,
-                "weighted": weighted_path,
-                "simple": simple_path,
-            }
-        )
-    return summary
+def run_pipeline_cli(
+    taxonomies: Iterable[Taxonomy], translation_source: str | None = None
+):
+    """Run SCB pull + weighting for each taxonomy (no disk writes)."""
+    return run_pipeline(taxonomies, translation_source=translation_source)
 
 
 def parse_args() -> argparse.Namespace:
@@ -57,15 +40,16 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     taxonomies = args.taxonomy or ["ssyk2012", "ssyk96"]
-    results = run_pipeline(taxonomies)
+    results = run_pipeline_cli(taxonomies, translation_source=None)
 
-    print("\nDAIOE datasets refreshed:\n" + "-" * 40)
-    for item in results:
-        print(f"Taxonomy: {item['taxonomy']}")
-        print(f"  SCB weights:         {item['scb']}")
-        print(f"  Employment-weighted: {item['weighted']}")
-        print(f"  Simple-average:      {item['simple']}\n")
-    print("Outputs are ready under data/03_daioe_aggregated for app.py")
+    print("\nDAIOE datasets refreshed in-memory:\n" + "-" * 40)
+    for taxonomy, payload in results.items():
+        print(f"Taxonomy: {taxonomy}")
+        print(f"  SCB year:             {payload['scb_year']}")
+        print(f"  Weighted rows:        {len(payload['weighted'])}")
+        print(f"  Simple-average rows:  {len(payload['simple'])}")
+        if payload["unmatched"]:
+            print(f"  Translation notes:    {payload['unmatched']}")
 
 
 if __name__ == "__main__":
