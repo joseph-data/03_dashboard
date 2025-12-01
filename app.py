@@ -232,7 +232,6 @@ with ui.sidebar(open="open"):
         )
 
 ui.page_opts(
-    title="DAIOE Explorer",
     fillable=True,
     fillable_mobile=True,
     full_width=True,
