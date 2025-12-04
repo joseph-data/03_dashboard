@@ -203,7 +203,7 @@ with ui.sidebar(open="open"):
     )
 
     ui.input_switch("sort_desc", "Sort descending", value=DEFAULT_SORT_DESC)
-    ui.input_text("search", "Search occupation", placeholder="e.g. statistician")
+    ui.input_text("search", "Search by occupation", placeholder="e.g. statistician")
     with ui.popover(id="help_popover", title="How to Use the Dashboard"):
         ui.input_action_button(
             "show_help", "ℹ️ Quick Guide", class_="btn btn-link p-0 text-decoration-none"
