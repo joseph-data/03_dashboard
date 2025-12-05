@@ -12,6 +12,8 @@ from typing import Dict, Iterable, Literal, Tuple
 
 import pandas as pd
 
+import config
+
 ROOT = Path(__file__).resolve().parent
 
 
@@ -27,13 +29,6 @@ def _load_module(name: str):
 
 _scb = _load_module("01_scbpull")
 Taxonomy = Literal["ssyk2012", "ssyk96"]
-
-# Public dataset sources (GitHub raw URLs) keyed by taxonomy.
-DATASET_URLS: Dict[Taxonomy, str] = {
-    "ssyk2012": "https://raw.githubusercontent.com/joseph-data/07_translate_ssyk/main/03_translated_files/daioe_ssyk2012_translated.csv",
-    "ssyk96": "https://raw.githubusercontent.com/joseph-data/07_translate_ssyk/main/03_translated_files/daioe_ssyk96_translated.csv",
-}
-
 
 # ----------------------------------------------------------------------------
 # Helpers
@@ -53,10 +48,10 @@ def split_code_label(series: pd.Series) -> tuple[pd.Series, pd.Series]:
 # ----------------------------------------------------------------------------
 # Data loaders
 # ----------------------------------------------------------------------------
-def load_daioe_raw(taxonomy: Taxonomy, sep: str = ",") -> pd.DataFrame:
-    if taxonomy not in DATASET_URLS:
+def load_daioe_raw(taxonomy: Taxonomy, sep: str = config.DEFAULT_SEP) -> pd.DataFrame:
+    if taxonomy not in config.DATASET_URLS:
         raise KeyError(f"No dataset URL configured for taxonomy '{taxonomy}'")
-    return pd.read_csv(DATASET_URLS[taxonomy], sep=sep)
+    return pd.read_csv(config.DATASET_URLS[taxonomy], sep=sep)
 
 
 def prepare_raw_dataframe(
@@ -256,7 +251,7 @@ def build_pipeline(
 def run_weighting(
     taxonomy: Taxonomy,
     *,
-    sep: str = ",",
+    sep: str = config.DEFAULT_SEP,
 ) -> Dict[str, object]:
     """End-to-end flow: fetch raw, attach SCB, aggregate."""
     raw = load_daioe_raw(taxonomy, sep=sep)
@@ -292,7 +287,7 @@ def run_weighting(
 def run_pipeline(
     taxonomies: Iterable[Taxonomy] | None = None,
     *,
-    sep: str = ",",
+    sep: str = config.DEFAULT_SEP,
 ) -> Dict[Taxonomy, Dict[str, object]]:
     taxonomies = list(taxonomies or ["ssyk2012", "ssyk96"])
     results: Dict[Taxonomy, Dict[str, object]] = {}
@@ -313,8 +308,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--sep",
-        default=",",
-        help="Delimiter used in DAIOE source files (default: comma)",
+        default=config.DEFAULT_SEP,
+        help=f"Delimiter used in DAIOE source files (default: '{config.DEFAULT_SEP}')",
     )
     return parser.parse_args()
 

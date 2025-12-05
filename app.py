@@ -10,38 +10,14 @@ from shiny.express import input, ui
 from shinywidgets import render_widget
 from shinyswatch import theme
 
+import config
 from scripts import run_pipeline  # type: ignore
 
-TAXONOMY_OPTIONS = [
-    ("🇸🇪 SSYK 2012", "ssyk2012"),
-    ("🇸🇪 SSYK 1996", "ssyk96"),
-]
+TAXONOMY_OPTIONS = config.TAXONOMY_OPTIONS
+METRIC_OPTIONS: List[Tuple[str, str]] = config.METRIC_OPTIONS
+WEIGHTING_OPTIONS: List[Tuple[str, str]] = config.WEIGHTING_OPTIONS
 
-METRIC_OPTIONS: List[Tuple[str, str]] = [
-    ("📚 All Applications", "allapps"),
-    ("♟️ Abstract strategy games", "stratgames"),
-    ("🎮 Real-time video games", "videogames"),
-    ("🖼️🔎 Image recognition", "imgrec"),
-    ("🧩🖼️ Image comprehension", "imgcompr"),
-    ("🖌️🖼️ Image generation", "imggen"),
-    ("📖 Reading comprehension", "readcompr"),
-    ("✍️🤖 Language modelling", "lngmod"),
-    ("🌐🔤 Translation", "translat"),
-    ("🗣️🎙️ Speech recognition", "speechrec"),
-    ("🧠✨ Generative AI", "genai"),
-]
-
-WEIGHTING_OPTIONS = [
-    ("Employment weighted", "emp_weighted"),
-    ("Simple average", "simple_avg"),
-]
-
-LEVEL_OPTIONS = [
-    ("Level 4 (4-digit)", 4),
-    ("Level 3 (3-digit)", 3),
-    ("Level 2 (2-digit)", 2),
-    ("Level 1 (1-digit)", 1),
-]
+LEVEL_OPTIONS = config.LEVEL_OPTIONS
 LEVEL_LABELS = {value: label for label, value in LEVEL_OPTIONS}
 LEVEL_CHOICES = {str(value): label for label, value in LEVEL_OPTIONS}
 
@@ -92,12 +68,13 @@ ALL_YEARS = sorted(
 )
 GLOBAL_YEAR_MIN = ALL_YEARS[0]
 GLOBAL_YEAR_MAX = ALL_YEARS[-1]
-DEFAULT_TAXONOMY = "ssyk2012"
-DEFAULT_LEVEL = 3  # Level 3 (3-digit)
-DEFAULT_WEIGHTING = "emp_weighted"
+DEFAULT_TAXONOMY = config.DEFAULT_TAXONOMY
+DEFAULT_LEVEL = config.DEFAULT_LEVEL
+DEFAULT_WEIGHTING = config.DEFAULT_WEIGHTING
 DEFAULT_YEAR_RANGE = (GLOBAL_YEAR_MIN, GLOBAL_YEAR_MAX)
-DEFAULT_SORT_DESC = True
+DEFAULT_SORT_DESC = config.DEFAULT_SORT_DESC
 DEFAULT_LEVEL_CHOICE = str(DEFAULT_LEVEL)
+DEFAULT_TOP_N = config.DEFAULT_TOP_N
 
 
 def metric_mapping() -> Dict[str, str]:
@@ -196,7 +173,7 @@ with ui.sidebar(open="open"):
         "Occupations to display (0 = all)",
         min=0,
         max=30,
-        value=10,
+        value=DEFAULT_TOP_N,
         step=1,
     )
 
