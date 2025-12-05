@@ -25,6 +25,7 @@ defusedxml==0.7.1
 et-xmlfile==2.0.0
 eval-type-backport==0.3.0
 executing==2.2.1
+faicons==0.2.2
 fastjsonschema==2.21.2
 fonttools==4.60.1
 fqdn==1.5.1
