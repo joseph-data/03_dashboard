@@ -3,14 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List, Tuple
 from faicons import icon_svg
-from numpy import info
 import pandas as pd
 import plotly.express as px
 from shiny import reactive, render
 import shiny.ui as classic_ui
 from shiny.express import input, ui
 from shinywidgets import render_widget
-from shinyswatch import theme
 
 from scripts import run_pipeline  # type: ignore
 from scripts import config
@@ -79,6 +77,19 @@ DEFAULT_LEVEL_CHOICE = str(DEFAULT_LEVEL)
 DEFAULT_TOP_N = config.DEFAULT_TOP_N
 
 
+css_file = Path(__file__).parent / "css" / "theme.scss"
+
+ui.page_opts(
+    fillable=False,
+    fillable_mobile=True,
+    full_width=True,
+    id="page",
+    lang="en",
+)
+
+ui.include_css(css_file)
+
+
 def metric_mapping() -> Dict[str, str]:
     return {value: label for label, value in METRIC_OPTIONS}
 
@@ -103,6 +114,15 @@ def format_raw_value(value: float) -> str:
     if pd.isna(value):
         return "N/A"
     return f"{value:.3f}"
+
+
+def apply_search_filter(df: pd.DataFrame) -> pd.DataFrame:
+    search_term = input.search().strip().lower()
+    if not search_term:
+        return df
+
+    labels = df["label"].astype(str).str.lower()
+    return df[labels.str.contains(search_term, na=False)]
 
 
 @reactive.calc
@@ -203,19 +223,6 @@ with ui.sidebar(open="open"):
         )
 
 
-css_file = Path(__file__).parent / "css" / "theme.scss"
-
-ui.include_css(css_file)
-
-ui.page_opts(
-    fillable=False,
-    fillable_mobile=True,
-    full_width=True,
-    id="page",
-    lang="en",
-)
-
-
 # ---------------------------------------------------------------------------
 # Reactive helpers
 # ---------------------------------------------------------------------------
@@ -277,10 +284,7 @@ def filtered_data() -> pd.DataFrame:
     df = df[(df["year"] >= year_min) & (df["year"] <= year_max)]
 
     # Search filter (occupation label in Swedish)
-    search_term = input.search().strip().lower()
-    if search_term:
-        labels = df["label"].astype(str).str.lower()
-        df = df[labels.str.contains(search_term, na=False)]
+    df = apply_search_filter(df)
 
     if df.empty:
         return df
@@ -343,10 +347,7 @@ def latest_extremes() -> Dict[str, Dict[str, float | str]]:
     df = df[(df["year"] >= year_min) & (df["year"] <= year_max)]
 
     # Apply search filter (consistent with main plots)
-    search_term = input.search().strip().lower()
-    if search_term:
-        labels = df["label"].astype(str).str.lower()
-        df = df[labels.str.contains(search_term, na=False)]
+    df = apply_search_filter(df)
 
     if df.empty:
         return {}
