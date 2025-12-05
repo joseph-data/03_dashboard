@@ -25,9 +25,9 @@ def _load_module(name: str):
 
 
 _scb = _load_module("01_scbpull")
-_weighting = _load_module("03_weighting")
+_weighting = _load_module("02_weighting")
 
-# Re-export shared types and helpers for consumers (app.py, main.py, etc.)
+# Re-export shared types and helpers for consumers (app.py, CLI, etc.)
 Taxonomy = _weighting.Taxonomy
 fetch_scb_taxonomy = _scb.fetch_taxonomy_dataframe
 run_weighting = _weighting.run_weighting

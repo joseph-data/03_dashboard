@@ -12,7 +12,7 @@ from typing import Dict, Iterable, Literal, Tuple
 
 import pandas as pd
 
-import config
+from scripts import config
 
 ROOT = Path(__file__).resolve().parent
 

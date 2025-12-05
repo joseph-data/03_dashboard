@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Dict, List, Tuple
-
+from faicons import icon_svg
+from numpy import info
 import pandas as pd
 import plotly.express as px
 from shiny import reactive, render
@@ -10,8 +12,8 @@ from shiny.express import input, ui
 from shinywidgets import render_widget
 from shinyswatch import theme
 
-import config
 from scripts import run_pipeline  # type: ignore
+from scripts import config
 
 TAXONOMY_OPTIONS = config.TAXONOMY_OPTIONS
 METRIC_OPTIONS: List[Tuple[str, str]] = config.METRIC_OPTIONS
@@ -179,32 +181,36 @@ with ui.sidebar(open="open"):
 
     ui.input_switch("sort_desc", "Sort descending", value=DEFAULT_SORT_DESC)
     ui.input_text("search", "Search by occupation", placeholder="e.g. statistician")
-    with ui.popover(id="help_popover", title="How to Use the Dashboard"):
+    with ui.popover(id="help_popover"):
         ui.input_action_button(
-            "show_help", "ℹ️ Quick Guide", class_="btn btn-link p-0 text-decoration-none"
+            "show_help",
+            "Quick Guide",
+            class_="btn-primary",
+            icon=icon_svg("circle-info"),
         )
         ui.markdown(
             """
-<div style="padding:12px 14px; margin-top:8px; max-width: 360px; border:1px solid #e5e7eb; border-radius:6px;">
-  <p style="margin:0 0 8px 0;"><strong>Quick steps</strong></p>
-  <ul style="margin:0 0 0 16px; padding:0;">
-    <li><strong>Pick taxonomy</strong>: SSYK 2012 vs 1996.</li>
-    <li><strong>Select level</strong>: 4-digit = most detail; 1-digit = broad groups.</li>
-    <li><strong>Choose a sub-index</strong>: DAIOE metric to plot.</li>
-    <li><strong>Weighting</strong>: employment-weighted vs simple average.</li>
-    <li><strong>Years</strong>: slider sets the window; chart uses the latest year in view.</li>
-    <li><strong>Top N</strong>: limit the list (0 shows everything).</li>
-    <li><strong>Search + sort</strong>: filter by name and flip order.</li>
-  </ul>
-</div>
+#### **Quick guide**
+
+- **Taxonomy**: SSYK 2012 = current; SSYK 1996 = historic.
+- **Level**: 4-digit shows individual occupations; 1-digit shows broad groups.
+- **Sub-index**: Pick the DAIOE metric to visualize; chart titles reflect your selection.
+- **Weighting**: Employment-weighted highlights labour-market impact; Simple average treats each occupation equally.
+- **Years**: Use the slider; charts always use the latest year within the range.
+- **Top N / Search**: Limit to the N highest values (0 shows all) and filter by occupation name; toggle sort direction.
+- **Reading charts**: Hover lines for per-year values; bars display raw + percentile labels; value boxes show the most/least exposed in the latest year.
             """
         )
+
+
+css_file = Path(__file__).parent / "css" / "theme.scss"
+
+ui.include_css(css_file)
 
 ui.page_opts(
     fillable=True,
     fillable_mobile=True,
     full_width=True,
-    theme=theme.flatly,
     id="page",
     lang="en",
 )

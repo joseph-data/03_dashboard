@@ -19,16 +19,16 @@ What it does
 Workflow
 --------
 1) SCB pull (`scripts/01_scbpull.py`): fetches the latest employment counts for a taxonomy and returns a tidy DataFrame (levels 1–4).  
-2) Weighting (`scripts/03_weighting.py`): downloads pre-translated DAIOE CSVs from GitHub, merges SCB weights, computes weighted and simple aggregates, and returns both DataFrames.  
-3) App integration: `app.py` calls `run_pipeline` on import to get fresh data for the UI; `main.py` can be run to sanity-check the pipeline via CLI.
+2) Weighting (`scripts/02_weighting.py`): downloads pre-translated DAIOE CSVs from GitHub, merges SCB weights, computes weighted and simple aggregates, and returns both DataFrames.  
+3) App integration: `app.py` calls `run_pipeline` on import to get fresh data for the UI; run `python -m scripts.03_main` to sanity-check the pipeline via CLI.
 
 Running locally
 ---------------
-- Run `python main.py` to confirm the pipeline completes; it will log row counts and SCB year.  
+- Run `python -m scripts.03_main` to confirm the pipeline completes; it will log row counts and SCB year.  
 - Start the Shiny app (e.g., `python app.py`) and it will load the freshly built in-memory frames.
 
 Notes
 -----
-- Legacy scripts in `scripts/01_scbPull.py` and `scripts/02_weighting.py` wrote to disk; the current no-write path uses `01_scbpull.py` and `03_weighting.py`.  
+- Legacy scripts in `scripts/01_scbPull.py` and `scripts/02_weighting.py` wrote to disk; the current no-write path uses `01_scbpull.py` and `02_weighting.py`.  
 - Network access is required to reach the GitHub dataset and the SCB API.
 - Pre-translated source CSVs live at `https://github.com/joseph-data/07_translate_ssyk/tree/main/03_translated_files`; no translation workbooks are needed at runtime.

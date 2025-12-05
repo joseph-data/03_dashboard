@@ -8,7 +8,6 @@ year, useful for sanity-checking outside the Shiny app.
 import argparse
 from typing import Iterable
 
-
 # Scripts are exposed via scripts/__init__.py to avoid numeric imports.
 from scripts import Taxonomy, run_pipeline  # noqa: E402
 
