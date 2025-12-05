@@ -208,7 +208,7 @@ css_file = Path(__file__).parent / "css" / "theme.scss"
 ui.include_css(css_file)
 
 ui.page_opts(
-    fillable=True,
+    fillable=False,
     fillable_mobile=True,
     full_width=True,
     id="page",
