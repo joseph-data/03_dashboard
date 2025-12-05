@@ -376,7 +376,7 @@ def latest_extremes() -> Dict[str, Dict[str, float | str]]:
 # ---------------------------------------------------------------------------
 # Top summary boxes
 # ---------------------------------------------------------------------------
-with ui.layout_columns(col_widths=[6, 6], gap="9px"):
+with ui.layout_columns(col_widths=[6, 6], gap="16px", class_="mb-3"):
 
     @render.ui
     def most_exposed_box():
@@ -425,7 +425,7 @@ with ui.layout_columns(col_widths=[6, 6], gap="9px"):
 # ---------------------------------------------------------------------------
 # Main UI cards & plots
 # ---------------------------------------------------------------------------
-with ui.card(full_screen=True, fill=True):
+with ui.card(full_screen=True, fill=True, class_="mb-3"):
     ui.card_header("Trend by occupation")
 
     @render_widget
@@ -452,7 +452,7 @@ with ui.card(full_screen=True, fill=True):
         return fig
 
 
-with ui.card(full_screen=True, fill=True):
+with ui.card(full_screen=True, fill=True, class_="mb-3"):
     ui.card_header("Latest year comparison")
 
     @render_widget
