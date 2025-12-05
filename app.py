@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from typing import Dict, List, Tuple
 
 import pandas as pd
@@ -49,8 +48,7 @@ LEVEL_CHOICES = {str(value): label for label, value in LEVEL_OPTIONS}
 
 def load_data() -> Dict[str, pd.DataFrame]:
     """Fetch raw + SCB data on the fly and build weighting outputs in-memory."""
-    translation_source = os.getenv("SSYK96_TRANSLATION_SOURCE")
-    pipeline_results = run_pipeline(translation_source=translation_source)
+    pipeline_results = run_pipeline()
     frames: Dict[str, pd.DataFrame] = {}
 
     for _, taxonomy in TAXONOMY_OPTIONS:
@@ -210,22 +208,16 @@ with ui.sidebar(open="open"):
         )
         ui.markdown(
             """
-<div style="
-    padding:12px 14px;
-    margin-top:8px;
-    background:#f8fdff;
-    border-left:4px solid #0dcaf0;
-    border-radius:4px;
-">
+<div style="padding:12px 14px; margin-top:8px; max-width: 360px; border:1px solid #e5e7eb; border-radius:6px;">
+  <p style="margin:0 0 8px 0;"><strong>Quick steps</strong></p>
   <ul style="margin:0 0 0 16px; padding:0;">
-    <li><strong>Taxonomy:</strong> Pick the occupational classification (SSYK 2012/1996).</li>
-    <li><strong>Level:</strong> Choose the digit depth; higher numbers show more granular occupations.</li>
-    <li><strong>Sub-index:</strong> Select which DAIOE metric to plot.</li>
-    <li><strong>Weighting:</strong> Switch between employment-weighted values and simple averages.</li>
-    <li><strong>Year range:</strong> Adjust the time window; the bar chart uses the latest year in view.</li>
-    <li><strong>Top N:</strong> Limit occupations displayed (0 shows all).</li>
-    <li><strong>Sort direction:</strong> Toggle ascending/descending for rankings.</li>
-    <li><strong>Search:</strong> Filter occupations by name.</li>
+    <li><strong>Pick taxonomy</strong>: SSYK 2012 vs 1996.</li>
+    <li><strong>Select level</strong>: 4-digit = most detail; 1-digit = broad groups.</li>
+    <li><strong>Choose a sub-index</strong>: DAIOE metric to plot.</li>
+    <li><strong>Weighting</strong>: employment-weighted vs simple average.</li>
+    <li><strong>Years</strong>: slider sets the window; chart uses the latest year in view.</li>
+    <li><strong>Top N</strong>: limit the list (0 shows everything).</li>
+    <li><strong>Search + sort</strong>: filter by name and flip order.</li>
   </ul>
 </div>
             """
