@@ -185,12 +185,12 @@ with ui.sidebar(open="open"):
         ui.input_action_button(
             "show_help",
             "Quick Guide",
-            class_="btn-primary",
+            class_="btn btn-outline-primary btn-sm w-100",
             icon=icon_svg("circle-info"),
         )
         ui.markdown(
             """
-#### **Quick guide**
+#### **Quick Guide**
 
 - **Taxonomy**: SSYK 2012 = current; SSYK 1996 = historic.
 - **Level**: 4-digit shows individual occupations; 1-digit shows broad groups.
