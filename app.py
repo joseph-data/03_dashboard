@@ -150,7 +150,7 @@ def chart_title() -> str:
 # Sidebar UI
 # ---------------------------------------------------------------------------
 
-with ui.sidebar(open="open"):
+with ui.sidebar(open="open", class_="bg-light p-3", width=300, position="right"):
     ui.img(
         src="lab.svg",  # because it's in www/
         style="max-width: 200px; margin-bottom: 8px;",
