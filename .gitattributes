@@ -1,0 +1,32 @@
+# Normalize line endings across platforms
+* text=auto
+
+# Prefer LF for source/config files
+*.py   text eol=lf
+*.md   text eol=lf
+*.txt  text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.csv  text eol=lf
+*.scss text eol=lf
+*.css  text eol=lf
+*.svg  text eol=lf
+Dockerfile text eol=lf
+
+# Treat common binaries as binary (no end-of-line normalization)
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.zip  binary
+*.gz   binary
+*.tar  binary
+*.tgz  binary
+*.whl  binary
+*.so   binary
+*.dll  binary
+*.exe  binary

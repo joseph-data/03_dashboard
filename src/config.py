@@ -1,8 +1,10 @@
-from __future__ import annotations
+"""Centralized configuration for DAIOE Explorer.
 
+- Override dataset URLs via env vars (`DAIOE_SSYK2012_URL`, `DAIOE_SSYK96_URL`).
+- UI option lists used by `app.py` live here.
 """
-Centralized, overridable configuration for DAIOE Explorer.
-"""
+
+from __future__ import annotations
 
 import os
 from typing import Dict, List, Tuple

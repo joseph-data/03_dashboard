@@ -1,17 +1,32 @@
+# DAIOE Explorer (Shiny app).
+#
+# High-level flow:
+# - Load pipeline outputs once at startup via `src.data_manager.load_data()` (disk-cached by default).
+# - Treat everything below as filtering + presentation; no pipeline recomputation in reactives.
+#
+# Developer notes:
+# - Add/adjust selectable options in `src/config.py`.
+# - The sidebar contains all user-controlled inputs; `Reset filters` restores defaults.
+
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Dict, List, Tuple
 from faicons import icon_svg
 import pandas as pd
-import plotly.express as px
 from shiny import reactive, render
 import shiny.ui as classic_ui
 from shiny.express import input, ui
 from shinywidgets import render_widget
 
-from scripts import run_pipeline  # type: ignore
-from scripts import config
+from src import config
+from src.data_manager import load_data
+from src.plotting import (
+    build_bar_plot,
+    build_trend_plot,
+    format_metric_value,
+    format_raw_value,
+)
 
 TAXONOMY_OPTIONS = config.TAXONOMY_OPTIONS
 METRIC_OPTIONS: List[Tuple[str, str]] = config.METRIC_OPTIONS
@@ -22,46 +37,10 @@ LEVEL_LABELS = {value: label for label, value in LEVEL_OPTIONS}
 LEVEL_CHOICES = {str(value): label for label, value in LEVEL_OPTIONS}
 
 
-def load_data() -> Dict[str, pd.DataFrame]:
-    """Fetch raw + SCB data on the fly and build weighting outputs in-memory."""
-    pipeline_results = run_pipeline()
-    frames: Dict[str, pd.DataFrame] = {}
-
-    for _, taxonomy in TAXONOMY_OPTIONS:
-        payload = pipeline_results.get(taxonomy)
-        if not payload:
-            continue
-
-        dfs = []
-        weighted = payload.get("weighted")
-        simple = payload.get("simple")
-
-        if isinstance(weighted, pd.DataFrame) and not weighted.empty:
-            tmp = weighted.copy()
-            tmp["weighting"] = "emp_weighted"
-            tmp["weighting_label"] = WEIGHTING_OPTIONS[0][0]
-            dfs.append(tmp)
-
-        if isinstance(simple, pd.DataFrame) and not simple.empty:
-            tmp = simple.copy()
-            tmp["weighting"] = "simple_avg"
-            tmp["weighting_label"] = WEIGHTING_OPTIONS[1][0]
-            dfs.append(tmp)
-
-        if dfs:
-            full = pd.concat(dfs, ignore_index=True)
-            if "year" in full.columns:
-                full["year"] = full["year"].astype(int)
-            if "level" in full.columns:
-                full["level"] = full["level"].astype(int)
-            frames[taxonomy] = full
-
-    if not frames:
-        raise RuntimeError("No aggregated DAIOE datasets could be built in-memory.")
-    return frames
-
-
 DATA = load_data()
+
+# Defaults are mostly sourced from `src/config.py`, except the global year range
+# which is derived from whatever data is available at startup.
 
 ALL_YEARS = sorted(
     {int(year) for frame in DATA.values() for year in frame["year"].unique()}
@@ -102,20 +81,6 @@ def taxonomy_mapping() -> Dict[str, str]:
     return {value: label for label, value in TAXONOMY_OPTIONS}
 
 
-def format_metric_value(value: float) -> str:
-    if pd.isna(value):
-        return "N/A"
-    if 0 <= value <= 1:
-        return f"{value:.0%}"
-    return f"{value:.2f}"
-
-
-def format_raw_value(value: float) -> str:
-    if pd.isna(value):
-        return "N/A"
-    return f"{value:.3f}"
-
-
 def apply_search_filter(df: pd.DataFrame) -> pd.DataFrame:
     search_term = input.search().strip().lower()
     if not search_term:
@@ -127,10 +92,7 @@ def apply_search_filter(df: pd.DataFrame) -> pd.DataFrame:
 
 @reactive.calc
 def chart_title() -> str:
-    """
-    Shared chart title that captures the current metric, taxonomy, weighting,
-    level, and the latest year available in the filtered data.
-    """
+    # Shared title capturing the current metric/taxonomy/weighting/level plus the latest year.
     df = filtered_data()
     latest_year = int(df["year"].max()) if not df.empty else None
 
@@ -222,10 +184,31 @@ with ui.sidebar(open="open", class_="bg-light p-3", width=300, position="right")
             """
         )
 
+    ui.hr()
+    ui.input_action_button(
+        "reset_filters",
+        "Reset filters",
+        class_="btn btn-primary w-100",
+        icon=icon_svg("arrow-rotate-left"),
+    )
+
 
 # ---------------------------------------------------------------------------
 # Reactive helpers
 # ---------------------------------------------------------------------------
+
+@reactive.effect
+@reactive.event(input.reset_filters)
+def _reset_filters() -> None:
+    # Push defaults back into the UI (does not trigger a data reload).
+    ui.update_radio_buttons("taxonomy", selected=DEFAULT_TAXONOMY)
+    ui.update_select("level", selected=DEFAULT_LEVEL_CHOICE)
+    ui.update_select("metric", selected=METRIC_OPTIONS[0][1])
+    ui.update_select("weighting", selected=DEFAULT_WEIGHTING)
+    ui.update_slider("year_range", value=DEFAULT_YEAR_RANGE)
+    ui.update_slider("top_n", value=DEFAULT_TOP_N)
+    ui.update_switch("sort_desc", value=DEFAULT_SORT_DESC)
+    ui.update_text("search", value="")
 
 
 @reactive.calc
@@ -245,10 +228,7 @@ def percentile_metric_name() -> str:
 
 @reactive.calc
 def current_data() -> pd.DataFrame:
-    """
-    Base filtered dataset for the current taxonomy, weighting, and level.
-    This is the 'structural' filter and is reused by downstream reactives.
-    """
+    # Structural filter: taxonomy + weighting + level (shared by all downstream reactives).
     taxonomy = input.taxonomy()
     if taxonomy not in DATA:
         return pd.DataFrame()
@@ -266,10 +246,7 @@ def current_data() -> pd.DataFrame:
 
 @reactive.calc
 def filtered_data() -> pd.DataFrame:
-    """
-    Further filters current_data() by metric availability, year range,
-    search term, and top_n selection.
-    """
+    # Adds metric/year/search/top-N filtering on top of `current_data()`.
     df = current_data()
     if df.empty:
         return df
@@ -308,11 +285,7 @@ def filtered_data() -> pd.DataFrame:
 
 @reactive.calc
 def latest_order() -> List[str]:
-    """
-    Provides a consistent ordering of occupations (labels) based on
-    the latest year and the chosen sort direction.
-    This is shared by both the trend and bar plots.
-    """
+    # Consistent label ordering based on the latest year and chosen sort direction.
     df = filtered_data()
     if df.empty:
         return []
@@ -432,25 +405,13 @@ with ui.card(full_screen=True, fill=True, class_="mb-3"):
     @render_widget
     def trend_plot():
         df = filtered_data()
-        if df.empty:
-            return px.line()
-
-        metric_col = metric_name()
-        fig = px.line(
+        return build_trend_plot(
             df,
-            x="year",
-            y=metric_col,
-            color="label",
-            markers=True,  # kept for identical look
-            category_orders={"label": latest_order()},
-            labels={
-                "label": "Occupation",
-                "year": "Year",
-                metric_col: metric_label(),
-            },
+            metric_col=metric_name(),
+            metric_label=metric_label(),
+            title=chart_title(),
+            order=latest_order(),
         )
-        fig.update_layout(hovermode="x unified", title=chart_title())
-        return fig
 
 
 with ui.card(full_screen=True, fill=True, class_="mb-3"):
@@ -459,41 +420,14 @@ with ui.card(full_screen=True, fill=True, class_="mb-3"):
     @render_widget
     def bar_plot():
         df = filtered_data()
-        if df.empty:
-            return px.bar()
-
-        metric_col = percentile_metric_name()
-        raw_col = metric_name()
-        latest = df["year"].max()
-        latest_df = df[df["year"] == latest]
-
-        order = latest_order()
-        # Reorder rows to match the order list if not empty
-        if order:
-            latest_df = latest_df.set_index("label").loc[order].reset_index()
-
-        latest_df = latest_df.copy()
-        latest_df["bar_label"] = latest_df.apply(
-            lambda row: f"{format_raw_value(row[raw_col])} | {format_metric_value(row[metric_col])}",
-            axis=1,
+        return build_bar_plot(
+            df,
+            percentile_col=percentile_metric_name(),
+            raw_col=metric_name(),
+            metric_label=metric_label(),
+            title=chart_title(),
+            order=latest_order(),
         )
-
-        fig = px.bar(
-            latest_df,
-            x=metric_col,
-            y="label",
-            orientation="h",
-            text="bar_label",
-            category_orders={"label": order},
-            labels={
-                "label": "Occupation",
-                metric_col: f"{metric_label()} (percentile rank)",
-            },
-        )
-        fig.update_layout(title=chart_title())
-        fig.update_traces(textposition="inside")
-        fig.update_xaxes(range=[0, 1], tickformat=".0%")
-        return fig
 
 
 if __name__ == "__main__":

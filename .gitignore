@@ -28,5 +28,9 @@ coverage.xml
 dist/
 build/
 
+# Local data outputs
+data/*
+!data/.gitkeep
+
 # Notebook checkpoints
 .ipynb_checkpoints/

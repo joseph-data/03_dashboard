@@ -1,38 +1,28 @@
+"""DAIOE pipeline: build weighted + simple aggregates from DAIOE + SCB data.
+
+Entry points:
+- `run_pipeline()` returns results for all configured taxonomies.
+- `run_weighting(taxonomy)` runs a single taxonomy.
+
+Outputs:
+- DataFrames include: `taxonomy`, `level`, `code`, `label`, `year`, `n_children`,
+  all `daioe_*` metric columns, and `pct_rank_*` percentile ranks.
+
+CLI:
+- `python -m src.pipeline` (optional `--taxonomy` / `--sep`)
+"""
+
 from __future__ import annotations
 
-"""
-DAIOE weighting pipeline: load pre-translated DAIOE data, attach SCB employment
-weights, aggregate across levels, and compute percentiles.
-"""
-
 import argparse
-import importlib.util
-from pathlib import Path
-from typing import Dict, Iterable, Literal, Tuple
+from typing import Dict, Iterable, Literal
 
 import pandas as pd
 
-from scripts import config
-
-ROOT = Path(__file__).resolve().parent
-
-
-def _load_module(name: str):
-    target = ROOT / f"{name}.py"
-    spec = importlib.util.spec_from_file_location(name, target)
-    module = importlib.util.module_from_spec(spec)
-    if spec.loader is None:  # pragma: no cover - defensive
-        raise ImportError(f"Could not load module '{name}' from {target}")
-    spec.loader.exec_module(module)
-    return module
+from . import config
+from .scb_fetch import Taxonomy, fetch_taxonomy_dataframe
 
 
-_scb = _load_module("01_scbpull")
-Taxonomy = Literal["ssyk2012", "ssyk96"]
-
-# ----------------------------------------------------------------------------
-# Helpers
-# ----------------------------------------------------------------------------
 def ensure_columns(df: pd.DataFrame, required: list[str]) -> None:
     missing = [col for col in required if col not in df.columns]
     if missing:
@@ -45,9 +35,6 @@ def split_code_label(series: pd.Series) -> tuple[pd.Series, pd.Series]:
     return parts[0], parts[1]
 
 
-# ----------------------------------------------------------------------------
-# Data loaders
-# ----------------------------------------------------------------------------
 def load_daioe_raw(taxonomy: Taxonomy, sep: str = config.DEFAULT_SEP) -> pd.DataFrame:
     if taxonomy not in config.DATASET_URLS:
         raise KeyError(f"No dataset URL configured for taxonomy '{taxonomy}'")
@@ -78,6 +65,7 @@ def prepare_raw_dataframe(
         df[f"code{level}"] = codes
         df[f"label{level}"] = labels
 
+    # Normalize codes for reliable joins/grouping across sources.
     df["code4"] = df["code4"].str.zfill(4)
     for level in (1, 2, 3):
         df[f"code{level}"] = df[f"code{level}"].str.lstrip("0")
@@ -120,9 +108,6 @@ def compute_children_maps(df: pd.DataFrame) -> dict[int, pd.DataFrame]:
     return counts
 
 
-# ----------------------------------------------------------------------------
-# Aggregation utilities
-# ----------------------------------------------------------------------------
 def aggregate_level(
     df: pd.DataFrame,
     *,
@@ -191,6 +176,7 @@ def add_percentiles(df: pd.DataFrame, metrics: list[str]) -> list[str]:
     for metric in metrics:
         suffix = metric.removeprefix("daioe_")
         rank_col = f"pct_rank_{suffix}"
+        # Percentile ranks are computed within each (year, level) slice.
         df[rank_col] = df.groupby(["year", "level"])[metric].rank(pct=True)
         pct_cols.append(rank_col)
     return pct_cols
@@ -245,17 +231,14 @@ def build_pipeline(
     return combined[ordered].sort_values(["level", "code", "year"], ignore_index=True)
 
 
-# ----------------------------------------------------------------------------
-# Pipeline driver
-# ----------------------------------------------------------------------------
 def run_weighting(
     taxonomy: Taxonomy,
     *,
     sep: str = config.DEFAULT_SEP,
 ) -> Dict[str, object]:
-    """End-to-end flow: fetch raw, attach SCB, aggregate."""
+    """End-to-end flow: fetch raw DAIOE, join SCB weights, aggregate + rank."""
     raw = load_daioe_raw(taxonomy, sep=sep)
-    scb_df, scb_year = _scb.fetch_taxonomy_dataframe(taxonomy)
+    scb_df, scb_year = fetch_taxonomy_dataframe(taxonomy)
     prepared, daioe_cols = prepare_raw_dataframe(raw, taxonomy)
     prepared = attach_employment(prepared, scb_df)
     n_children = compute_children_maps(prepared)
@@ -298,7 +281,7 @@ def run_pipeline(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Aggregate DAIOE subindices across SSYK taxonomy levels",
+        description="Run the DAIOE pipeline end-to-end and log row counts.",
     )
     parser.add_argument(
         "--taxonomy",
@@ -318,11 +301,15 @@ def main() -> None:
     args = parse_args()
     taxonomies = args.taxonomy or ["ssyk2012", "ssyk96"]
     results = run_pipeline(taxonomies, sep=args.sep)
+
+    print("\nDAIOE datasets refreshed in-memory:\n" + "-" * 40)
     for taxonomy, payload in results.items():
         weighted = payload["weighted"]
         simple = payload["simple"]
-        print(f"{taxonomy}: weighted rows={len(weighted)}, simple rows={len(simple)}")
-        print(f"  SCB year: {payload['scb_year']}")
+        print(f"Taxonomy: {taxonomy}")
+        print(f"  SCB year:             {payload['scb_year']}")
+        print(f"  Weighted rows:        {len(weighted)}")
+        print(f"  Simple-average rows:  {len(simple)}")
 
 
 if __name__ == "__main__":

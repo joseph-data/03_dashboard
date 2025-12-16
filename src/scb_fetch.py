@@ -1,9 +1,16 @@
-from __future__ import annotations
+"""SCB fetch helper: pull employment counts for SSYK taxonomies.
 
+Main entry point:
+- `fetch_taxonomy_dataframe(taxonomy)` returns `(df, year_used)`.
+
+Output schema (tidy):
+- `taxonomy`, `year`, `level`, `code`, `value`
+
+CLI:
+- `python -m src.scb_fetch --taxonomy ssyk2012`
 """
-SCB pull helper: fetches the latest employment counts for a given SSYK taxonomy
-from the SCB API and returns a tidy dataframe along with the year used.
-"""
+
+from __future__ import annotations
 
 import argparse
 from typing import Literal, Tuple
@@ -47,6 +54,7 @@ def fetch_taxonomy_dataframe(taxonomy: Taxonomy) -> Tuple[pd.DataFrame, str]:
     scb = SCB(*TABLES[taxonomy])
     var_block = scb.get_variables()
     occupations_key, occupations = next(iter(var_block.items()))
+    # SCB variable names sometimes contain spaces; query keys cannot.
     clean_key = occupations_key.replace(" ", "")
 
     year = _latest_year(var_block)
@@ -54,11 +62,9 @@ def fetch_taxonomy_dataframe(taxonomy: Taxonomy) -> Tuple[pd.DataFrame, str]:
     scb.set_query(**{clean_key: occupations, "year": [year]})
     scb_fetch = scb.get_data()["data"]
 
-    codes = scb.get_query()["query"][0]["selection"]["values"]
-    occ_dict = dict(zip(codes, occupations))
-
     records = []
     for record in scb_fetch:
+        # SCB records encode the occupation code + year in the `key` field.
         code, obs_year = record["key"][:2]
         if code == "0002":
             continue  # drop unspecified bucket
