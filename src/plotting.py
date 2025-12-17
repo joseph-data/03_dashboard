@@ -53,7 +53,13 @@ def build_trend_plot(
             metric_col: metric_label,
         },
     )
-    fig.update_layout(hovermode="x unified", title=title)
+    fig.update_layout(
+        hovermode="x unified",
+        title=title,
+        xaxis_showgrid=True,
+        yaxis_showgrid=True,
+        template="plotly_white",
+    )
     return fig
 
 
@@ -96,7 +102,12 @@ def build_bar_plot(
             percentile_col: f"{metric_label} (percentile rank)",
         },
     )
-    fig.update_layout(title=title)
+    fig.update_layout(
+        title=title,
+        xaxis_showgrid=True,
+        yaxis_showgrid=True,
+        template="plotly_white",
+    )
     fig.update_traces(textposition="inside")
     fig.update_xaxes(range=[0, 1], tickformat=".0%")
     return fig
